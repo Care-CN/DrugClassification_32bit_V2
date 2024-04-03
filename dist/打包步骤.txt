@@ -1,0 +1,9 @@
+1. 项目根目录下启动cmd
+2. activate pyside 打开虚拟环境
+3. 执行命令 pyinstaller -F -w -i D:\PyCharm\PJ\DrugClassification_32bit_V2\icon.ico main.py
+-F 指生成单个exe文件 -D 打包为一个目录
+-c 指带有cmd终端框 -w 指不带cmd终端框
+-i ico的文件地址
+最后为main方法所在py文件
+
+日期：2024年2月11日02:37:37
