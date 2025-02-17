@@ -24,6 +24,7 @@ import xlsxwriter  # 写xlsx
 import xlrd  # 读xlsx
 import re  # 正则表达式
 import sqlite3  # python内置数据库
+from functools import partial
 
 
 class CustomGrip(QWidget):
@@ -437,7 +438,6 @@ class RecordDialog(QDialog):
 
     def initUI(self):
         self.setWindowTitle("修改记录")
-        # self.resize(400, 300)  # 宽度400px，高度300px
 
         # 使用Form布局来自动管理标签和输入框
         form_layout = QFormLayout()
@@ -445,12 +445,16 @@ class RecordDialog(QDialog):
         # 创建文本输入框，并用标签标识它们
         self.idLineEdit = QLineEdit(self)
         self.idLineEdit.setReadOnly(True)  # 设置序号为只读
-        self.idLineEdit.setText(self.record_id)
+        self.idLineEdit.setText(str(self.record_id))
         self.nameLineEdit = QLineEdit(self)
         self.specLineEdit = QLineEdit(self)
         self.unitLineEdit = QLineEdit(self)
         self.priceLineEdit = QLineEdit(self)
         self.manufacturerLineEdit = QLineEdit(self)
+
+        # 创建一个新的文本框用于粘贴格式化数据
+        self.formattedDataTextEdit = QTextEdit(self)
+        self.formattedDataTextEdit.setPlaceholderText("粘贴格式化数据在这里...")
 
         # 添加文本输入框到表单布局
         form_layout.addRow("序号:", self.idLineEdit)
@@ -459,6 +463,7 @@ class RecordDialog(QDialog):
         form_layout.addRow("单位:", self.unitLineEdit)
         form_layout.addRow("单价:", self.priceLineEdit)
         form_layout.addRow("生产厂家:", self.manufacturerLineEdit)
+        form_layout.addRow("格式化数据:", self.formattedDataTextEdit)
 
         # 创建按钮并连接信号
         self.saveButton = QPushButton("保存", self)
@@ -466,11 +471,16 @@ class RecordDialog(QDialog):
         self.cancelButton = QPushButton("取消", self)
         self.cancelButton.clicked.connect(self.reject)
 
+        # 创建另一个按钮，用于从格式化文本框填充数据
+        self.fillButton = QPushButton("填充数据", self)
+        self.fillButton.clicked.connect(self.fillDataFromText)
+
         # 水平布局放置按钮
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch(1)
         buttons_layout.addWidget(self.saveButton)
         buttons_layout.addWidget(self.cancelButton)
+        buttons_layout.addWidget(self.fillButton)
 
         # 垂直布局来放置表单和按钮布局
         layout = QVBoxLayout(self)
@@ -518,6 +528,16 @@ class RecordDialog(QDialog):
                     QPushButton:hover {
                         border: 2px solid rgb(64, 71, 88);
                     }
+                    QTextEdit {
+                        background-color: rgb(27, 29, 35);
+                        color: rgb(255, 255, 255);
+                        border-radius: 5px;
+                        selection-color: rgb(255, 255, 255);
+                        selection-background-color: rgb(255, 121, 198);
+                        font-family: Smiley Sans;
+                        font-size: 18px;
+                        height: 30px;
+                    }
                     """)
         self.setLayout(layout)
 
@@ -546,6 +566,40 @@ class RecordDialog(QDialog):
 
     def getNewData(self):
         return self.new_data
+
+    def fillDataFromText(self):
+        # 获取格式化数据文本框中的内容
+        formatted_data = self.formattedDataTextEdit.toPlainText()
+
+        try:
+            # 假设每一行数据是通过制表符（\t）分隔的字段
+            # 将数据按行分割
+            lines = formatted_data.splitlines()
+
+            # 如果数据不为空并且包含至少一个字段
+            if len(lines) > 0:
+                # 解析每一行数据
+                fields = lines[0].split('\t')  # 使用制表符分割字段
+
+                # 检查字段的数量，确保有至少 6 个字段
+                if len(fields) >= 6:
+                    # 定义一个函数来处理字段中的 "None" 值
+                    def handle_none(value):
+                        return "" if value == "None" else value.strip()
+
+                    # 填充每个字段到对应的文本框
+                    self.nameLineEdit.setText(handle_none(fields[1]))  # 药品名称
+                    self.specLineEdit.setText(handle_none(fields[2]))  # 规格
+                    self.unitLineEdit.setText(handle_none(fields[3]))  # 单位
+                    self.priceLineEdit.setText(handle_none(fields[4]))  # 单价
+                    self.manufacturerLineEdit.setText(handle_none(fields[5]))  # 生产厂家
+                else:
+                    raise ValueError("格式化数据的字段数不足")
+            else:
+                raise ValueError("没有有效的格式化数据")
+
+        except Exception as e:
+            CustomMessageBox("警告", f"无法从格式化数据中提取信息：{e}", 2, 0).show()
 
 
 class CustomTableWidget(QTableWidget):
@@ -578,7 +632,15 @@ class CustomTableWidget(QTableWidget):
         copyAction = self.menu.addAction("复制")
         modifyAction = self.menu.addAction("修改")
         deleteAction = self.menu.addAction("删除")
-        clearAction = self.menu.addAction("清空")
+        moveAction = self.menu.addAction("移动")
+        clearAction = self.menu.addAction("清空视图")
+
+        # 创建一个子菜单来动态显示所有目标表
+        moveSubMenu = QMenu("选择目标表", self.menu)
+        self.populate_target_tables(moveSubMenu)  # 填充目标表列表
+
+        # 将子菜单添加到“移动”菜单项
+        moveAction.setMenu(moveSubMenu)
 
         action = self.menu.exec_(self.mapToGlobal(event.pos()))
 
@@ -590,6 +652,8 @@ class CustomTableWidget(QTableWidget):
             self.delete_record()  # 删除记录
         elif action == copyAction:
             self.copy_selection()  # 复制选中的行
+        elif action == moveAction:
+            pass  # 这里不需要做任何操作，因为选择目标表在子菜单中处理了
 
     # 修改记录
     def modify_record(self):
@@ -604,7 +668,7 @@ class CustomTableWidget(QTableWidget):
             cursor.execute(f"SELECT * FROM '{self.now_table}' WHERE 序号 = ?", (record_id,))
             row_data = cursor.fetchone()  # 假设只有一条记录与record_id匹配
             # 弹出修改窗口并传入选中的记录ID
-            dialog = RecordDialog(record_id, row_data, 'edit', self)
+            dialog = RecordDialog(str(record_id), row_data, 'edit', self)
             if dialog.exec_() == QDialog.Accepted:
                 # 如果修改成功，重新加载或更新表格数据
                 new_data = dialog.getNewData()
@@ -666,6 +730,69 @@ class CustomTableWidget(QTableWidget):
             # 复制到剪贴板
             clipboard = QApplication.clipboard()
             clipboard.setText(''.join(selected_data))
+
+    def populate_target_tables(self, moveSubMenu):
+        # 假设从数据库获取所有目标表的表名
+        # 可以通过 SQL 查询获取数据库中的所有表名
+        cursor = self.drug_db.conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+
+        # 将所有表名作为子菜单项添加到子菜单
+        for table in tables:
+            table_name = table[0]
+            if table_name != self.now_table:  # 排除当前表
+                tableAction = moveSubMenu.addAction(table_name)
+                # tableAction.triggered.connect(
+                #     lambda checked, table_name=table_name: self.move_record_to_another_table(table_name))
+                # 使用 partial 绑定table_name
+                tableAction.triggered.connect(partial(self.move_record_to_another_table, target_table=table_name))
+
+    def move_record_to_another_table(self, target_table):
+        # 获取当前选中的行
+        selected_row = self.currentRow()
+
+        if selected_row < 0:  # 如果没有选中行
+            CustomMessageBox("警告", "请先选择要移动的记录！", 2, 0).show()
+            return
+
+        # 获取选中行的所有数据
+        row_data = {}
+        for column in range(self.columnCount()):
+            column_name = self.horizontalHeaderItem(column).text()  # 获取列名
+            cell_text = self.item(selected_row, column).text()
+            row_data[column_name] = cell_text if cell_text != "None" else ""
+
+        # 将数据插入到目标表
+        try:
+            cursor = self.drug_db.conn.cursor()
+            sql = f"SELECT MAX(序号) FROM '{target_table}';"
+            cursor.execute(sql)
+            max_id_row = cursor.fetchone()
+            if max_id_row:
+                max_id = max_id_row[0]  # fetchone()返回的是一个元组，即使只有一个值
+            else:
+                max_id = 0  # 如果表为空，可能没有最大序号
+            new_id = max_id + 1
+
+            # 构建参数化的SQL INSERT语句
+            sql = f"""INSERT INTO '{target_table}' (序号, 药品名称, 规格, 单位, 单价, 生产厂家)
+                      VALUES ({new_id}, :药品名称, :规格, :单位, :单价, :生产厂家)"""
+
+            cursor.execute(sql, row_data)
+            self.drug_db.conn.commit()
+
+            # 从当前表删除该记录
+            sql_delete = f"DELETE FROM '{self.now_table}' WHERE 序号 = :序号"
+            cursor.execute(sql_delete, {'序号': row_data['序号']})
+            self.drug_db.conn.commit()
+
+            # 更新当前表数据
+            self.load_data()  # 重新加载表格数据
+            CustomMessageBox("成功", f"记录已成功移动到目标表：{target_table}，新序号为：{new_id}！", 1, 0).show()
+
+        except Exception as e:
+            CustomMessageBox("错误", f"无法移动记录：{e}", 2, 0).show()
 
     def load_data(self):
         self.setData()

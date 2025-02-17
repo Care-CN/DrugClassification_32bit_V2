@@ -1,0 +1,1 @@
+pyinstaller -F -w -i recourse/icon/icon.ico main.py

@@ -215,31 +215,31 @@ class MainWindow(QMainWindow):
             if now_table not in self.drug_db.getTablesName():
                 CustomMessageBox("警告", "选择的表不存在于数据库中！", 2, 0).show()
             else:
-                # try:
-                cursor = self.drug_db.conn.cursor()
-                sql = f"SELECT MAX(序号) FROM '{now_table}';"
-                cursor.execute(sql)
-                max_id_row = cursor.fetchone()
-                if max_id_row:
-                    max_id = max_id_row[0]  # fetchone()返回的是一个元组，即使只有一个值
-                else:
-                    max_id = 0  # 如果表为空，可能没有最大序号
-                new_id = max_id + 1
-                # 弹出修改窗口并传入选中的记录ID
-                dialog = RecordDialog(str(new_id), None, 'add', self)
-                if dialog.exec_() == QDialog.Accepted:
-                    # 如果用户确认添加，获取新数据
-                    new_data = dialog.getNewData()
-                    # 构建参数化的SQL INSERT语句
-                    sql = f"""INSERT INTO {now_table} (序号, 药品名称, 规格, 单位, 单价, 生产厂家)
-                                      VALUES (:序号, :药品名称, :规格, :单位, :单价, :生产厂家)"""
-                    # 执行SQL语句
-                    cursor.execute(sql, new_data)
-                    self.drug_db.conn.commit()  # 提交更改
-                    # 重新加载或更新表格数据
-                    widgets.tableWidget_drug.load_data()
-                # except Exception as e:
-                #     CustomMessageBox("添加失败", f"无法添加记录：{e}", 2, 0).show()
+                try:
+                    cursor = self.drug_db.conn.cursor()
+                    sql = f"SELECT MAX(序号) FROM '{now_table}';"
+                    cursor.execute(sql)
+                    max_id_row = cursor.fetchone()
+                    if max_id_row:
+                        max_id = max_id_row[0]  # fetchone()返回的是一个元组，即使只有一个值
+                    else:
+                        max_id = 0  # 如果表为空，可能没有最大序号
+                    new_id = max_id + 1
+                    # 弹出修改窗口并传入选中的记录ID
+                    dialog = RecordDialog(str(new_id), None, 'add', self)
+                    if dialog.exec_() == QDialog.Accepted:
+                        # 如果用户确认添加，获取新数据
+                        new_data = dialog.getNewData()
+                        # 构建参数化的SQL INSERT语句
+                        sql = f"""INSERT INTO '{now_table}' (序号, 药品名称, 规格, 单位, 单价, 生产厂家)
+                                          VALUES (:序号, :药品名称, :规格, :单位, :单价, :生产厂家)"""
+                        # 执行SQL语句
+                        cursor.execute(sql, new_data)
+                        self.drug_db.conn.commit()  # 提交更改
+                        # 重新加载或更新表格数据
+                        widgets.tableWidget_drug.load_data()
+                except Exception as e:
+                    CustomMessageBox("添加失败", f"无法添加记录：{e}", 2, 0).show()
 
 
     # RESIZE EVENTS

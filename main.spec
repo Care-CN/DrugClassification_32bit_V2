@@ -37,4 +37,4 @@ exe = EXE(pyz,
           disable_windowed_traceback=False,
           target_arch=None,
           codesign_identity=None,
-          entitlements_file=None , icon='D:\\PyCharm\\PJ\\DrugClassification_32bit_V2\\icon.ico')
+          entitlements_file=None , icon='recourse\\icon\\icon.ico')
