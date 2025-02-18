@@ -286,9 +286,16 @@ class MainWindow(QMainWindow):
             for match in match_table:
                 query = f"SELECT `生产厂家` FROM `{match}` WHERE 药品名称=?"
                 manufactor_list = cur.execute(query, (drug_name,)).fetchall()
-                if manufactor_list[0][0] != '' and manufactor_list[0][0] is not None:
-                    if manufactor_list[0][0][0:2] == drug_manufactor[0:2]:
-                        right_table = match
+                # 遍历所有的生产厂家记录
+                for manufactor in manufactor_list:
+                    manufactor_name = manufactor[0]
+
+                    # 判断生产厂家是否非空且非None
+                    if manufactor_name != '' and manufactor_name is not None:
+                        # 判断前两个字是否匹配
+                        if manufactor_name[0:2] == drug_manufactor[0:2]:
+                            right_table = match
+                            break  # 找到匹配的表后跳出当前循环
         # 关闭游标
         cur.close()
         return right_table
